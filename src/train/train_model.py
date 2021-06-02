@@ -9,18 +9,17 @@ import os
 import json
 import numpy as np
 import pandas as pd
-import keras
-from keras.optimizers import Adam
-from keras.utils import to_categorical
+from tensorflow import keras
+from tensorflow.keras.utils import to_categorical
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight
 import random
-from keras.regularizers import l2
+from tensorflow.keras.regularizers import l1_l2
 
 from src.models.keras.CNN import CNN
 from src.models.keras.Linear import Linear
-from src.utils.utils import split_labels_indices, split_train_test, getScalerFromString
+from src.utils.utils import split_train_test, getScalerFromString
 from src.utils.metrics import matthews_correlation as mcc
 from src.utils.dataset import ms_data
 
@@ -30,8 +29,8 @@ import tensorflow as tf
 from skopt.space import Real, Integer
 from skopt import gp_minimize
 from tensorboard.plugins.hparams import api as hp
-from keras.models import Sequential
-from keras.layers import Dense, Flatten, Dropout
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Dropout
 from datetime import datetime
 
 seed(42)
@@ -39,25 +38,6 @@ tf.random.set_seed(42)
 random.seed(42)
 
 os.makedirs(f'logs/hparam_tuning', exist_ok=True)
-
-HP_EPOCHS = hp.HParam('epochs', hp.IntInterval(1, 25))
-HP_LR = hp.HParam('lr', hp.RealInterval(1e-5, 1e-3))
-HP_WD = hp.HParam('wd', hp.RealInterval(1e-8, 1e-3))
-HP_BETA1 = hp.HParam('beta1', hp.RealInterval(0.9, 0.99))
-HP_BETA2 = hp.HParam('beta2', hp.RealInterval(0.99, 0.999))
-HPARAMS = [HP_EPOCHS, HP_LR, HP_WD, HP_BETA1, HP_BETA2]
-with tf.summary.create_file_writer(f'logs/hparam_tuning').as_default():
-    hp.hparams_config(
-        hparams=HPARAMS,
-        metrics=[
-            hp.Metric('train_accuracy', display_name='Train Accuracy'),
-            hp.Metric('valid_accuracy', display_name='Valid Accuracy'),
-            hp.Metric('test_accuracy', display_name='Test Accuracy'),
-            hp.Metric('train_loss', display_name='Train Loss'),
-            hp.Metric('valid_loss', display_name='Valid Loss'),
-            hp.Metric('test_loss', display_name='Test Loss')
-        ],
-    )
 
 
 def compute_confusion_matrix(y_test, y_classes):
@@ -67,31 +47,56 @@ def compute_confusion_matrix(y_test, y_classes):
     return sensitivity, specificity
 
 
-def tb_logging(hparams_filepath, params, traces):
-    epochs = params['n_epochs']
-    lr = params['lr']
-    wd = params['wd']
-    beta1 = params['beta1']
-    beta2 = params['beta2']
-    l1 = params['l1']
-    with tf.summary.create_file_writer(hparams_filepath).as_default():
-        hp.hparams({
-            'epochs': epochs,
-            'lr': lr,
-            'wd': wd,
-            'beta1': beta1,
-            'beta2': beta2,
-            'l1': l1,
-        })  # record the values used in this trial
-        tf.summary.scalar('train_accuracy', np.mean([np.mean(x) for x in traces['train']['accuracies']]), step=1)
-        tf.summary.scalar('valid_accuracy', np.mean(traces['valid']['accuracies']), step=1)
-        tf.summary.scalar('test_accuracy', np.mean(traces['test']['accuracies']), step=1)
-        tf.summary.scalar('train_loss', np.mean([np.mean(x) for x in traces['train']['losses']]), step=1)
-        tf.summary.scalar('valid_loss', np.mean(traces['valid']['losses']), step=1)
-        tf.summary.scalar('test_loss', np.mean(traces['test']['losses']), step=1)
-        tf.summary.scalar('train_mcc', np.mean([np.mean(x) for x in traces['train']['mccs']]), step=1)
-        tf.summary.scalar('valid_mcc', np.mean(traces['valid']['mccs']), step=1)
-        tf.summary.scalar('test_mcc', np.mean(traces['test']['mccs']), step=1)
+class TensorboardLogging:
+
+    def __init__(self, hparams_filepath, params):
+        self.params = params
+        self.hparams_filepath = hparams_filepath
+        HP_EPOCHS = hp.HParam('epochs', hp.IntInterval(1, 50))
+        HP_LR = hp.HParam('lr', hp.RealInterval(1e-6, 1e-3))
+        HP_WD = hp.HParam('wd', hp.RealInterval(1e-8, 1e-3))
+        HP_BS = hp.HParam('bs', hp.IntInterval(1, 512))
+        HP_L1 = hp.HParam('l1', hp.IntInterval(1, 512))
+        HPARAMS = [HP_EPOCHS, HP_LR, HP_WD, HP_BS, HP_L1]
+        with tf.summary.create_file_writer(hparams_filepath).as_default():
+            hp.hparams_config(
+                hparams=HPARAMS,
+                metrics=[
+                    hp.Metric('train_accuracy', display_name='Train Accuracy'),
+                    hp.Metric('valid_accuracy', display_name='Valid Accuracy'),
+                    hp.Metric('test_accuracy', display_name='Test Accuracy'),
+                    hp.Metric('train_loss', display_name='Train Loss'),
+                    hp.Metric('valid_loss', display_name='Valid Loss'),
+                    hp.Metric('test_loss', display_name='Test Loss'),
+                    hp.Metric('train_mcc', display_name='Train MCC'),
+                    hp.Metric('valid_mcc', display_name='Valid MCC'),
+                    hp.Metric('test_mcc', display_name='Test MCC')
+                ],
+            )
+
+    def logging(self, traces):
+        epochs = self.params['n_epochs']
+        lr = self.params['lr']
+        wd = self.params['wd']
+        l1 = self.params['l1']
+        bs = self.params['bs']
+        with tf.summary.create_file_writer(self.hparams_filepath).as_default():
+            hp.hparams({
+                'epochs': epochs,
+                'lr': lr,
+                'wd': wd,
+                'bs': bs,
+                'l1': l1,
+            })  # record the values used in this trial
+            tf.summary.scalar('train_accuracy', np.mean([np.mean(x) for x in traces['train']['accuracies']]), step=1)
+            tf.summary.scalar('valid_accuracy', np.mean(traces['valid']['accuracies']), step=1)
+            tf.summary.scalar('test_accuracy', np.mean(traces['test']['accuracies']), step=1)
+            tf.summary.scalar('train_loss', np.mean([np.mean(x) for x in traces['train']['losses']]), step=1)
+            tf.summary.scalar('valid_loss', np.mean(traces['valid']['losses']), step=1)
+            tf.summary.scalar('test_loss', np.mean(traces['test']['losses']), step=1)
+            tf.summary.scalar('train_mcc', np.mean([np.mean(x) for x in traces['train']['mccs']]), step=1)
+            tf.summary.scalar('valid_mcc', np.mean(traces['valid']['mccs']), step=1)
+            tf.summary.scalar('test_mcc', np.mean(traces['test']['mccs']), step=1)
 
 
 class Train:
@@ -99,6 +104,7 @@ class Train:
             self,
             intensities_file,
             cumulative_step,
+            scaler,
             criterion='categorical_crossentropy',
             variant='logistic',
             get_data_function=ms_data,
@@ -108,12 +114,14 @@ class Train:
             verbose=0,
             model_path=False,
             freeze=True,
+            retrain=True,
     ):
         self.dataset_name = intensities_file.split('/')[-1].split('_')[0]
         self.freeze = freeze
         self.verbose = verbose
         self.variant = variant
-        self.retrain = False
+        self.scaler = scaler
+        self.retrain = retrain
         self.cumulative_step = cumulative_step
         self.model_name = model_name
         self.save_train_models = save_train_models
@@ -173,9 +181,8 @@ class Train:
             f'{hparams["n_epochs"]}/' \
             f'{"{:.8f}".format(float(hparams["lr"]))}/' \
             f'{"{:.8f}".format(float(hparams["wd"]))}/' \
-            f'{"{:.8f}".format(float(hparams["beta1"]))}/' \
-            f'{"{:.8f}".format(float(hparams["beta2"]))}/' \
-            f'{"{:.8f}".format(float(hparams["l1"]))}/'
+            f'{"{:.8f}".format(float(hparams["l1"]))}/' \
+            f'{hparams["bs"]}/'
 
         dir_path = f"{base_path}/{path}"
 
@@ -192,9 +199,9 @@ class Train:
             model_source.model.pop()
 
             new_model = Sequential([
-                Dense(2050, activation='relu', activity_regularizer=l2(wd)),
+                Dense(2050, activation='relu', activity_regularizer=l1_l2(wd)),
                 Dropout(0.5),
-                Dense(self.nb_classes, activation='softmax', activity_regularizer=l2(wd))
+                Dense(self.nb_classes, activation='softmax', activity_regularizer=l1_l2(wd))
             ])
 
             for layer in new_model.layers:
@@ -211,9 +218,9 @@ class Train:
             model_source.model = Sequential([
                 model_source,
                 Flatten(),
-                Dense(120, activation='relu', activity_regularizer=l2(wd)),
-                Dense(84, activity_regularizer=l2(wd)),
-                Dense(self.nb_classes, activation='softmax', activity_regularizer=l2(wd))
+                Dense(120, activation='relu', activity_regularizer=l1_l2(wd)),
+                Dense(84, activity_regularizer=l1_l2(wd)),
+                Dense(self.nb_classes, activation='softmax', activity_regularizer=l1_l2(wd))
             ])
         elif self.variant == 'vgg9':
             model_source.model.pop()
@@ -222,11 +229,11 @@ class Train:
             model_source.model = Sequential([
                 model_source.model,
                 Flatten(),
-                Dense(4096, activation='relu', activity_regularizer=l2(wd)),
+                Dense(4096, activation='relu', activity_regularizer=l1_l2(wd)),
                 Dropout(0.5),
-                Dense(4096, activation='relu', activity_regularizer=l2(wd)),
+                Dense(4096, activation='relu', activity_regularizer=l1_l2(wd)),
                 Dropout(0.5),
-                Dense(self.nb_classes, activation='softmax', activity_regularizer=l2(wd))
+                Dense(self.nb_classes, activation='softmax', activity_regularizer=l1_l2(wd))
             ])
 
         elif self.variant == 'logistic':
@@ -240,17 +247,15 @@ class Train:
         n_epochs = h_params[0]
         lr = h_params[1]
         wd = h_params[2]
-        beta1 = h_params[3]
-        beta2 = h_params[4]
-        l1 = h_params[5]
+        l1 = h_params[3]
+        bs = h_params[4]
 
         h_params = {
             "n_epochs": n_epochs,
             "lr": lr,
             "wd": wd,
-            "beta1": beta1,
-            "beta2": beta2,
             "l1": l1,
+            "bs": bs,
         }
 
         path = \
@@ -258,13 +263,15 @@ class Train:
             f'{n_epochs}/' \
             f'{"{:.8f}".format(float(lr))}/' \
             f'{"{:.8f}".format(float(wd))}/' \
-            f'{"{:.8f}".format(float(beta1))}/' \
-            f'{"{:.8f}".format(float(beta2))}/' \
-            f'{"{:.8f}".format(float(l1))}/'
-        log_filepath = f"logs/{path}"
-        hparams_filepath = f"logs/hparam_tuning/{path}"
+            f'{"{:.8f}".format(float(l1))}/' \
+            f'{bs}/'
+        dnn = self.model_name(h_params, self.nb_classes, variant=self.variant, activation='relu', batch_size=bs)
+        hparams_filepath = f"logs/{dnn.get_model_name()}/{self.variant}/{self.datasets}/{self.freeze}/{self.retrain}" \
+                           f"/hparam_tuning/{path}"
+        log_filepath = f"logs/{dnn.get_model_name()}/{self.variant}/{self.datasets}/{self.freeze}/{self.retrain}/{path}"
+        del dnn
         os.makedirs(log_filepath, exist_ok=True)
-
+        tb_logging = TensorboardLogging(hparams_filepath, h_params)
         traces = {
             "train": {
                 "losses": [],
@@ -298,8 +305,8 @@ class Train:
 
         assert len(set(y_test)) == self.nb_classes
 
-        # 5 Fold-CV
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
+        # 3-fold CV; there is only 8 Normal samples for canis sarcoma, so will avoid having only 1 Normal per set
+        skf = StratifiedKFold(n_splits=3, shuffle=True, random_state=1)
         for i, (train_samples, valid_samples) in enumerate(skf.split(all_train_samples, train_cats)):
             # Just plot the first iteration, it will already be crowded if doing > 100 optimization iterations
             if self.verbose:
@@ -317,7 +324,11 @@ class Train:
             y_valid = self.labels['category'][valid_indices]
 
             assert len(set(y_train)) == self.nb_classes and len(set(y_valid)) == self.nb_classes
-            scaler = getScalerFromString('robust')()
+            assert len(all_train_indices) == len(train_indices) + len(valid_indices)
+            assert len([x for x in valid_indices if x in train_indices]) == 0
+            assert len([x for x in valid_samples if x in train_samples]) == 0
+
+            scaler = getScalerFromString(self.scaler)()
             scaler.fit(x_train)
             x_train = scaler.transform(x_train)
             x_valid = scaler.transform(x_valid)
@@ -327,13 +338,13 @@ class Train:
             y_train_conv = to_categorical(y_train, self.nb_classes)
             y_valid_conv = to_categorical(y_valid, self.nb_classes)
 
-            dnn = self.model_name(h_params, self.nb_classes, variant=self.variant, activation='relu')
+            dnn = self.model_name(h_params, self.nb_classes, batch_size=bs, variant=self.variant, activation='relu')
             dnn.build(input_shape=self.input_shape)
 
             if self.model_path:
                 dnn = self.update_model(model_source=dnn, path=self.model_path, wd=wd)
             dnn.model.compile(loss=self.criterion,
-                              optimizer=Adam(lr=lr, beta_1=beta1, beta_2=beta2, decay=wd, amsgrad=False),
+                              optimizer='adam',
                               metrics=['accuracy', mcc])
             callbacks = []
             if i == 0:
@@ -367,14 +378,15 @@ class Train:
             history = dnn.model.fit(
                 x=x_train_conv,
                 y=y_train_conv,
-                batch_size=256,
+                batch_size=bs,
                 verbose=fit_verbose,
                 epochs=n_epochs,
                 validation_split=0.,
                 class_weight=d_class_weights,
                 callbacks=callbacks
             )
-            base_path = f'saved_models/keras/{dnn.get_model_name()}/{self.variant}/{self.datasets}'
+            base_path = f'saved_models/keras/{dnn.get_model_name()}/{self.variant}/{self.datasets}/' \
+                        f'{self.freeze}/{self.retrain}/'
             file_path = f'{base_path}/{path}'
             os.makedirs(file_path, exist_ok=True)
 
@@ -417,7 +429,7 @@ class Train:
             history = dnn.model.fit(
                 x=x_train_conv,
                 y=y_train_conv,
-                batch_size=256,
+                batch_size=bs,
                 verbose=fit_verbose,
                 epochs=n_epochs,
                 validation_split=0.,
@@ -442,7 +454,7 @@ class Train:
         dnn.model.save_weights(f'{file_path}/{self.variant}_{self.cumulative_step}.h5')
         self.step += 1
         try:
-            tb_logging(hparams_filepath, h_params, traces)
+            tb_logging.logging(traces)
         except:
             print("\nProblem with logging\n")
 
@@ -452,10 +464,9 @@ class Train:
                 'criterion': f'{self.criterion}',
                 'n_epochs': f'{n_epochs}',
                 'lr': f'{lr}',
-                'beta1': f'{beta1}',
-                'beta2': f'{beta2}',
                 'wd': f'{wd}',
                 'l1': f'{l1}',
+                'bs': f'{bs}',
             },
             'scores': {
                 'best_epoch': f'{best_epoch}',
@@ -496,6 +507,8 @@ if __name__ == "__main__":
                         help="")
     parser.add_argument("--cumulative_step", type=int, default=0,  #
                         help="")
+    parser.add_argument("--scaler", type=str, default='standard',  #
+                        help="")
 
     args = parser.parse_args()
 
@@ -519,15 +532,15 @@ if __name__ == "__main__":
                   verbose=args.verbose,
                   model_name=model,
                   model_path=args.pretrained_path,
-                  freeze=args.freeze
+                  freeze=args.freeze,
+                  scaler=args.scaler
                   )
     space = [
-        Integer(1, 20, "uniform", name='epochs'),
+        Integer(1, 100, "uniform", name='epochs'),
         Real(1e-6, 1e-3, "log-uniform", name='lr'),
         Real(1e-8, 1e-3, "log-uniform", name='wd'),
-        Real(0.9, 0.99, "log-uniform", name='beta1'),
-        Real(0.99, 0.9999, "log-uniform", name='beta2'),
         Real(1e-8, 1e-3, "log-uniform", name='l1'),
+        Integer(1, 512, "uniform", name='bs'),
     ]
 
     test_mean = gp_minimize(train.train, space, n_calls=100, random_state=42)

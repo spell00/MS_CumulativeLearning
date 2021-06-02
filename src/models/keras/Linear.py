@@ -5,9 +5,9 @@ Created on Fri May 28 2021
 @author: Simon Pelletier
 """
 
-from keras.models import Sequential
-from keras.layers import Dense, Flatten
-from keras.regularizers import l1_l2
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten
+from tensorflow.keras.regularizers import l1_l2
 from src.models.keras.Base import Base
 
 

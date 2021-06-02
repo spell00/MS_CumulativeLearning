@@ -7,3 +7,6 @@ tensorboardX
 ax-platform
 sklearn
 scikit-optimize
+tensorflow==2.4
+tensorflow-gpu==2.4
+tensorboard==2.4

@@ -5,16 +5,16 @@ Created on Fri May 28 2021
 @author: Simon Pelletier
 """
 
-import keras
-from keras.models import Sequential
-from keras.layers import Dense, Flatten, Conv1D, Dropout, BatchNormalization, MaxPooling1D, LeakyReLU
-from keras.regularizers import l1_l2
+from tensorflow import keras
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Flatten, Conv1D, Dropout, BatchNormalization, MaxPooling1D, LeakyReLU
+from tensorflow.keras.regularizers import l1_l2
 from src.models.keras.Base import Base
 
 
 class CNN(Base):
-    def __init__(self, h_params, nb_classes, variant='lecun', activation='relu'):
-        super(CNN, self).__init__(h_params, nb_classes, variant, activation)
+    def __init__(self, h_params, nb_classes, batch_size, variant='lecun', activation='relu'):
+        super(CNN, self).__init__(h_params, nb_classes, batch_size, variant, activation)
 
     def build(self, input_shape):
         self.input_shape = input_shape

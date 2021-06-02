@@ -5,12 +5,11 @@ Created on Fri May 28 2021
 @author: Simon Pelletier
 """
 
-from keras.layers import Dense, Layer, Flatten, Conv1D, Dropout, BatchNormalization, MaxPooling1D, LeakyReLU
-from keras.regularizers import l2
+from tensorflow.keras.layers import Dense, Layer, Flatten, Conv1D, Dropout, BatchNormalization, MaxPooling1D, LeakyReLU
 
 
 class Base(Layer):
-    def __init__(self, h_params, nb_classes, variant, activation):
+    def __init__(self, h_params, nb_classes, batch_size, variant, activation):
         super(Base, self).__init__()
 
         self.model = None
@@ -21,6 +20,7 @@ class Base(Layer):
         self.__activation = activation
         self.__variant = variant
         self.__nb_classes = nb_classes
+        self.__batch_size = batch_size
 
     def build(self, input_shape):
         exit('The function `build` needs to be implemented. This is an abstract class.')
@@ -53,6 +53,10 @@ class Base(Layer):
         return self.__h_params['n_epochs']
 
     @property
+    def bs(self):
+        return self.__h_params['bs']
+
+    @property
     def wd(self):
         return self.__h_params['wd']
 
@@ -60,17 +64,14 @@ class Base(Layer):
     def l1(self):
         return self.__h_params['l1']
 
-    @property
-    def beta1(self):
-        return self.__h_params['beta1']
-
-    @property
-    def beta2(self):
-        return self.__h_params['beta2']
 
     @variant.setter
     def variant(self, variant):
         self.__variant = variant
+
+    @bs.setter
+    def bs(self, bs):
+        self.__h_params['bs'] = bs
 
     @nb_classes.setter
     def nb_classes(self, nb_classes):
@@ -99,12 +100,4 @@ class Base(Layer):
     @l1.setter
     def l1(self, l1):
         self.__h_params['l1'] = l1
-
-    @beta1.setter
-    def beta1(self, beta1):
-        self.__h_params['beta1'] = beta1
-
-    @beta2.setter
-    def beta2(self, beta2):
-        self.__h_params['beta2'] = beta2
 

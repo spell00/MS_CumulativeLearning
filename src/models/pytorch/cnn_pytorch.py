@@ -7,8 +7,6 @@ Created on Fri May 28 2021
 
 import torch
 from torch import nn
-from keras.models import Sequential
-from keras.layers import Dense, Layer, Flatten, Conv1D, Dropout, BatchNormalization, MaxPooling1D, LeakyReLU
 
 
 class CNN(torch.nn.Module):
@@ -47,53 +45,6 @@ class CNN(torch.nn.Module):
         self.dense2 = nn.Linear(120, 84)
         self.dense3 = nn.Linear(84, self.nb_classes)
 
-
-    def lenet(self):
-        self.model = Sequential([
-            Conv1D(filters=16, kernel_size=21, strides=1, padding='same', input_shape=self.shape,
-                   kernel_initializer=keras.initializers.he_normal()),
-            BatchNormalization(),
-            LeakyReLU(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Conv1D(filters=32, kernel_size=11, strides=1, padding='same'),
-            BatchNormalization(),
-            LeakyReLU(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Conv1D(filters=64, kernel_size=5, strides=1, padding='same'),
-            BatchNormalization(),
-            LeakyReLU(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Flatten(),
-            Dense(2050, activation='relu'),
-            Dropout(0.5),
-            Dense(self.nb_classes, activation='softmax')  # or Activation('softmax')
-        ])
-
-    def vgg9(self):
-        self.model = Sequential([
-            Conv1D(filters=64, kernel_size=21, strides=1, padding='same', activation='relu',
-                   input_shape=self.shape, kernel_initializer=keras.initializers.he_normal()),
-            BatchNormalization(),
-            Conv1D(filters=64, kernel_size=21, strides=1, padding='same', activation='relu'),
-            BatchNormalization(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Conv1D(filters=128, kernel_size=11, strides=1, padding='same', activation='relu'),
-            BatchNormalization(),
-            Conv1D(filters=128, kernel_size=11, strides=1, padding='same', activation='relu'),
-            BatchNormalization(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Conv1D(filters=256, kernel_size=5, strides=1, padding='same', activation='relu'),
-            BatchNormalization(),
-            Conv1D(filters=256, kernel_size=5, strides=1, padding='same', activation='relu'),
-            BatchNormalization(),
-            MaxPooling1D(pool_size=2, strides=2, padding='same'),
-            Flatten(),
-            Dense(4096, activation='relu'),
-            Dropout(0.5),
-            Dense(4096, activation='relu'),
-            Dropout(0.5),
-            Dense(self.nb_classes, activation='softmax')  # or Activation('softmax')
-        ])
 
     def random_init(self, init_func=nn.init.kaiming_uniform_):
         for m in self.modules():

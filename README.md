@@ -26,3 +26,6 @@ Might need to rename the files to automate everything.
 R command line example
 "C:\Program Files\R\R-4.0.5\bin\Rscript.exe" src\preprocess\import_data.R --outIntensities data/beef_intensities.csv --outLabels data/beef_labels.csv --dir "D:/workbench/data/spectro/[SpiderMass]-Databank_Synapt_Beef-liver_Reproducibility/20170228_Bl_Reproducibility/mzXML" --meta "D:\workbench\data\spectro\[SpiderMass]-Databank_Synapt_Beef-liver_Reproducibility\20170228_Bl_Reproducibility\20170209_Bl_Reproducibility-experiment_Sample-list.xlsx" --label_column Analysis.time
 
+
+Short version of notebooks are better. long versions should keep working, but might not benefit from future modifications.
+They are for learning purpose.
