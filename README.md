@@ -10,6 +10,18 @@ All MS data can be found in : Canine sarcoma raw library is accessible on the Pr
 
 Raw SpiderMass spectra are converted into mzXML format using the 64-bit MSConvert tool (version 3.0), part of the ProteoWizard suite. Spectra with a total ion count (TIC) exceeding 1e4 count for irradiation detection are selected using the MSnbase package (version 1.20.7, R version 3.4.4) and converted into a csv file. Raw ovarian datasets are imported into a csv file format.
 
+**Getting started**
+
+Train
+`python src\train\train_model.py --intensities_csv data/canis_intensities.csv 
+--verbose 1 --model=lecun --criterion=categorical_crossentropy --pretrained_path=None --cumulative_step=0`
+Train wrong split
+`python src\train\train_model_wrong.py --intensities_csv data/canis_intensities.csv --verbose 1 --model=lecun 
+--criterion=categorical_crossentropy --pretrained_path=None --cumulative_step=0`
+
+R command line example
+Rscript src/preprocess/import_data.R --outIntensities data/beef_intensities.csv --outLabels data/beef_labels.csv --dir /path/to/mzXML --meta path/to/sample_list.xlsx --label_column Pathology.name
+
 **Citation request**
 
 <a id="1">[1]</a> 
@@ -19,13 +31,3 @@ Seddiki K., Saudemont K., Precioso F., Ogrinc N., Wisztorski M., Salzet M., Four
 **Contributing**
 
 For any questions, feel free to open an issue or contact at arnaud.droit@crchudequebec.ulaval.ca
-
-**Additional informations**
-Might need to rename the files to automate everything. 
-
-R command line example
-"C:\Program Files\R\R-4.0.5\bin\Rscript.exe" src\preprocess\import_data.R --outIntensities data/beef_intensities.csv --outLabels data/beef_labels.csv --dir "D:/workbench/data/spectro/[SpiderMass]-Databank_Synapt_Beef-liver_Reproducibility/20170228_Bl_Reproducibility/mzXML" --meta "D:\workbench\data\spectro\[SpiderMass]-Databank_Synapt_Beef-liver_Reproducibility\20170228_Bl_Reproducibility\20170209_Bl_Reproducibility-experiment_Sample-list.xlsx" --label_column Analysis.time
-
-
-Short version of notebooks are better. long versions should keep working, but might not benefit from future modifications.
-They are for learning purpose.

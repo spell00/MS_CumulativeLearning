@@ -67,22 +67,28 @@ def split_labels_indices(labels, train_inds):
 
 def split_train_test(labels):
     from sklearn.model_selection import StratifiedKFold
-    samples = []
-    cats = []
+    # First, get all unique samples and their category
+    unique_samples = []
+    unique_cats = []
     for sample, cat in zip(labels['sample'], labels['category']):
-        if sample not in samples:
-            samples += [sample]
-            cats += [cat]
+        if sample not in unique_samples:
+            unique_samples += [sample]
+            unique_cats += [cat]
 
+    # StratifiedKFold with n_splits of 5 to ranmdomly split 80/20.
+    # Used only once for train/test split.
+    # The train split needs to be split again into train/valid sets later
     skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=1)
-    train_inds, test_inds = next(skf.split(samples, cats))
-    train_samples, test_samples = [samples[s] for s in train_inds], [samples[s] for s in test_inds]
-    train_cats = [cats[ind] for ind in train_inds]
+    train_inds, test_inds = next(skf.split(unique_samples, unique_cats))
 
-    assert len(samples) == len(train_inds) + len(test_inds)
+    # After the samples are split, we get the duplicates of all samples.
+    train_samples, test_samples = [unique_samples[s] for s in train_inds], [unique_samples[s] for s in test_inds]
+    train_cats = [unique_cats[ind] for ind in train_inds]
+
+    assert len(unique_samples) == len(train_inds) + len(test_inds)
     assert len([x for x in test_inds if x in train_inds]) == 0
     assert len([x for x in test_samples if x in train_samples]) == 0
-    assert len(np.unique([cats[ind] for ind in test_samples])) > 1
+    assert len(np.unique([unique_cats[ind] for ind in test_samples])) > 1
 
     return train_samples, test_samples, train_cats
 

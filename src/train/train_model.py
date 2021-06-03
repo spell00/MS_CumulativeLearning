@@ -138,13 +138,13 @@ class Train:
                 # else:
                 # categories[i] = 0
         categories = pd.Categorical(labels).codes
-        self.labels = pd.concat([
+        self.labels_df = pd.concat([
             pd.DataFrame(np.array(samples).reshape([-1, 1])),
             pd.DataFrame(np.array(categories).reshape([-1, 1])),
             pd.DataFrame(np.array(labels).reshape([-1, 1])),
         ], 1)
-        self.labels.columns = ['sample', 'category', 'label']
-        self.nb_classes = len(np.unique(self.labels['category']))
+        self.labels_df.columns = ['sample', 'category', 'label']
+        self.nb_classes = len(np.unique(self.labels_df['category']))
         self.input_shape = [self.data.shape[1], n_channels]
         self.criterion = criterion
         self.step = 0
@@ -174,7 +174,7 @@ class Train:
         base_path = params_fname.split('/')
         previous_datasets = params[best_call]['datasets']
         assert previous_datasets == base_path[4]
-        base_path = f"{base_path[0]}/{base_path[1]}/{base_path[2]}/{base_path[3]}/{base_path[4]}"
+        base_path = f"{base_path[0]}/{base_path[1]}/{base_path[2]}/{base_path[3]}/{base_path[4]}/{base_path[5]}/{base_path[6]}"
 
         path = \
             f'{self.criterion}/' + \
@@ -205,7 +205,7 @@ class Train:
             ])
 
             for layer in new_model.layers:
-                layer.trainable = True
+                layer.trainable = self.freeze
 
             model_source.model = Sequential([
                 model_source.model,
@@ -296,12 +296,12 @@ class Train:
             },
         }
 
-        all_train_samples, test_samples, train_cats = split_train_test(self.labels)
-        all_train_indices = [s for s, lab in enumerate(self.labels['sample']) if lab in all_train_samples]
-        test_indices = [s for s, lab in enumerate(self.labels['sample']) if lab in test_samples]
+        all_train_samples, test_samples, train_cats = split_train_test(self.labels_df)
+        all_train_indices = [s for s, lab in enumerate(self.labels_df['sample']) if lab in all_train_samples]
+        test_indices = [s for s, lab in enumerate(self.labels_df['sample']) if lab in test_samples]
 
         x_test = self.data[test_indices]
-        y_test = self.labels['category'][test_indices].tolist()
+        y_test = self.labels_df['category'][test_indices].tolist()
 
         assert len(set(y_test)) == self.nb_classes
 
@@ -315,13 +315,13 @@ class Train:
 
             valid_samples = [all_train_samples[s] for s in valid_samples]
             train_samples = [all_train_samples[s] for s in train_samples]
-            train_indices = [s for s, lab in enumerate(self.labels['sample'].tolist()) if lab in train_samples]
-            valid_indices = [s for s, lab in enumerate(self.labels['sample'].tolist()) if lab in valid_samples]
+            train_indices = [s for s, lab in enumerate(self.labels_df['sample'].tolist()) if lab in train_samples]
+            valid_indices = [s for s, lab in enumerate(self.labels_df['sample'].tolist()) if lab in valid_samples]
 
             x_train = self.data[train_indices]
-            y_train = self.labels['category'][train_indices]
+            y_train = self.labels_df['category'][train_indices]
             x_valid = self.data[valid_indices]
-            y_valid = self.labels['category'][valid_indices]
+            y_valid = self.labels_df['category'][valid_indices]
 
             assert len(set(y_train)) == self.nb_classes and len(set(y_valid)) == self.nb_classes
             assert len(all_train_indices) == len(train_indices) + len(valid_indices)
@@ -417,7 +417,7 @@ class Train:
 
         if self.retrain:
             x_all_train = self.data[all_train_indices]
-            y_all_train = self.labels['category'][all_train_indices]
+            y_all_train = self.labels_df['category'][all_train_indices]
 
             scaler = getScalerFromString('robust')()
             scaler.fit(x_all_train)
@@ -497,7 +497,7 @@ if __name__ == "__main__":
                         help="Path to intensities csv file")
     parser.add_argument("--verbose", type=int, default=0,
                         help="Path to labels csv file")
-    parser.add_argument("--freeze", type=int, default=0,
+    parser.add_argument("--freeze", type=int, default=1,
                         help="Path to labels csv file")
     parser.add_argument("--model", type=str, default='logistic',
                         help="Name of the model to use [lenet, lecun, vgg9 or logistic].")
